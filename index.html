@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Prompt Builder</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Noto+Sans+KR:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+:root {
+  --bg:     #0e0e10;
+  --s1:     #18181b;
+  --s2:     #222226;
+  --s3:     #2c2c31;
+  --line:   #303036;
+  --ink:    #f0f0ec;
+  --ink2:   #7a7a84;
+  --ink3:   #3c3c44;
+
+  /* category accent colors */
+  --c-sub:  #f0f0ec;
+  --c-art:  #c084fc;
+  --c-med:  #e879f9;
+  --c-cam:  #38bdf8;
+  --c-sht:  #4ade80;
+  --c-lit:  #fbbf24;
+  --c-col:  #fb923c;
+  --c-mod:  #f472b6;
+  --c-set:  #818cf8;
+  --c-chr:  #34d399;
+  --c-tex:  #f87171;
+  --c-ren:  #94a3b8;
+  --c-qua:  #e2e8f0;
+}
+
+html, body {
+  height: 100%;
+  overflow: hidden;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+/* ══════════════════════════
+   APP SHELL  (3 zones)
+══════════════════════════ */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  height: 100vh;
+}
+
+/* ── ZONE 1 : TOP (prompt display) ── */
+.zone-top {
+  flex-shrink: 0;
+  background: var(--s1);
+  border-bottom: 1px solid var(--line);
+  padding: 14px 16px 12px;
+  min-height: 140px;
+  max-height: 200px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.zone-top-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.zone-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2.5px;
+  color: var(--ink3);
+  text-transform: uppercase;
+}
+
+.top-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.count-pill {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  color: var(--ink2);
+  background: var(--s3);
+  border-radius: 20px;
+  padding: 2px 8px;
+}
+
+.btn-sm {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-copy { color: var(--ink2); }
+.btn-copy:active { color: var(--ink); border-color: var(--ink2); }
+.btn-copy.ok { color: #4ade80; border-color: #4ade80; }
+
+.btn-reset { color: var(--ink3); }
+.btn-reset:active { color: var(--ink2); }
+
+/* Subject textarea */
+.subject-input {
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--ink);
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 13px;
+  font-weight: 300;
+  line-height: 1.6;
+  resize: none;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  caret-color: var(--ink);
+}
+.subject-input::placeholder { color: var(--ink3); }
+
+/* Prompt token display */
+.prompt-display {
+  flex: 1;
+  overflow-y: auto;
+  line-height: 1.8;
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  word-break: break-word;
+}
+
+.prompt-display::-webkit-scrollbar { width: 2px; }
+.prompt-display::-webkit-scrollbar-thumb { background: var(--line); }
+
+.prompt-empty {
+  color: var(--ink3);
+  font-style: italic;
+  font-size: 11px;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-weight: 300;
+}
+
+.tok { border-radius: 3px; padding: 1px 2px; }
+.tok-sep { color: var(--ink3); }
+
+/* token colors per category */
+.tok-sub  { color: var(--c-sub); font-weight: 500; }
+.tok-art  { color: var(--c-art); }
+.tok-med  { color: var(--c-med); }
+.tok-cam  { color: var(--c-cam); }
+.tok-sht  { color: var(--c-sht); }
+.tok-lit  { color: var(--c-lit); }
+.tok-col  { color: var(--c-col); }
+.tok-mod  { color: var(--c-mod); }
+.tok-set  { color: var(--c-set); }
+.tok-chr  { color: var(--c-chr); }
+.tok-tex  { color: var(--c-tex); }
+.tok-ren  { color: var(--c-ren); }
+.tok-qua  { color: var(--c-qua); }
+
+
+/* ── ZONE 2 : MIDDLE (chips) ── */
+.zone-mid {
+  flex: 1;
+  overflow-y: auto;
+  padding: 16px 14px 12px;
+  background: var(--bg);
+}
+
+.zone-mid::-webkit-scrollbar { width: 3px; }
+.zone-mid::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+
+.mid-cat-title {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.mid-cat-icon { font-size: 16px; }
+
+.mid-cat-en {
+  font-family: 'DM Mono', monospace;
+  font-size: 12px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-weight: 500;
+}
+
+.mid-cat-ko {
+  font-size: 11px;
+  color: var(--ink2);
+  font-weight: 300;
+}
+
+/* Subsection */
+.sub-section { margin-bottom: 20px; }
+
+.sub-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 2px;
+  color: var(--ink3);
+  text-transform: uppercase;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sub-label::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
+}
+
+/* Subject zone in middle */
+.subject-zone { display: flex; flex-direction: column; gap: 6px; }
+
+.subject-zone textarea {
+  width: 100%;
+  background: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 13px 14px;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 14px;
+  font-weight: 300;
+  color: var(--ink);
+  outline: none;
+  resize: none;
+  line-height: 1.7;
+  transition: border-color 0.2s;
+  caret-color: var(--ink);
+}
+.subject-zone textarea::placeholder { color: var(--ink3); }
+.subject-zone textarea:focus { border-color: var(--ink2); }
+
+.subject-zone .hint {
+  font-size: 10px;
+  color: var(--ink3);
+  font-weight: 300;
+  padding-left: 2px;
+}
+
+/* CHIPS */
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.chip {
+  cursor: pointer;
+  background: var(--s2);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 11px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  transition: border-color 0.1s, background 0.1s;
+  user-select: none;
+  -webkit-user-select: none;
+  active-state: none;
+}
+
+.chip:active { opacity: 0.7; }
+
+.chip.on {
+  border-color: currentColor;
+}
+
+.chip-en {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: var(--ink2);
+  line-height: 1.3;
+}
+.chip-ko {
+  font-size: 10px;
+  color: var(--ink3);
+  font-weight: 300;
+  line-height: 1.3;
+}
+
+.chip.on .chip-en { font-weight: 500; }
+.chip.on .chip-ko { opacity: 0.7; }
+
+
+/* ── ZONE 3 : BOTTOM NAV ── */
+.zone-bot {
+  flex-shrink: 0;
+  background: var(--s1);
+  border-top: 1px solid var(--line);
+  padding: 0;
+}
+
+.nav-scroll {
+  display: flex;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 12px 12px;
+  gap: 6px;
+}
+
+.nav-scroll::-webkit-scrollbar { display: none; }
+
+.nav-tab {
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  cursor: pointer;
+  border-radius: 9px;
+  padding: 7px 13px 6px;
+  background: var(--s2);
+  border: 1px solid var(--line);
+  transition: all 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 62px;
+  position: relative;
+}
+
+.nav-tab.active {
+  background: var(--s3);
+  border-color: var(--accent-color, var(--ink2));
+}
+
+.nav-tab-icon { font-size: 15px; line-height: 1; }
+
+.nav-tab-en {
+  font-family: 'DM Mono', monospace;
+  font-size: 8px;
+  color: var(--ink2);
+  letter-spacing: 0.5px;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.nav-tab-ko {
+  font-size: 9px;
+  color: var(--ink3);
+  font-weight: 300;
+  line-height: 1.2;
+  text-align: center;
+}
+
+.nav-tab.active .nav-tab-en { color: var(--ink); }
+.nav-tab.active .nav-tab-ko { color: var(--ink2); }
+
+.nav-dot {
+  position: absolute;
+  top: 5px; right: 5px;
+  width: 5px; height: 5px;
+  border-radius: 50%;
+  background: #4ade80;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.nav-tab.has-sel .nav-dot { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ── ZONE 1 : TOP ── -->
+  <div class="zone-top" id="zoneTop">
+    <div class="zone-top-header">
+      <span class="zone-label">Prompt</span>
+      <div class="top-actions">
+        <span class="count-pill" id="countPill">0 선택</span>
+        <button class="btn-sm btn-copy" id="copyBtn" onclick="doCopy()">Copy</button>
+        <button class="btn-sm btn-reset" onclick="doReset()">↺</button>
+      </div>
+    </div>
+    <div class="prompt-display" id="promptDisplay">
+      <span class="prompt-empty">아래에서 카테고리를 선택하고 항목을 골라보세요.</span>
+    </div>
+  </div>
+
+  <!-- ── ZONE 2 : MIDDLE ── -->
+  <div class="zone-mid" id="zoneMid">
+    <!-- populated by JS -->
+  </div>
+
+  <!-- ── ZONE 3 : BOTTOM NAV ── -->
+  <div class="zone-bot">
+    <div class="nav-scroll" id="navScroll"></div>
+  </div>
+
+</div>
+<script>
+/* ═══════════════════════════════
+   DATA
+═══════════════════════════════ */
+const CATS = [
+  {
+    id:'subject', icon:'✦', en:'Subject', ko:'주제', tokCls:'tok-sub', accentVar:'--c-sub',
+    isText: true,
+    placeholder:'예: a lone fox in rainy Tokyo, astronaut on Mars at sunset…',
+  },
+  {
+    id:'art', icon:'🎨', en:'Art Style', ko:'화풍', tokCls:'tok-art', accentVar:'--c-art',
+    subs:[
+      { label:'Realism · 사실주의', opts:[
+        {en:'photorealistic',ko:'사진처럼 사실적'},{en:'hyperrealistic',ko:'극사실주의'},
+        {en:'documentary style',ko:'다큐멘터리풍'},{en:'naturalistic',ko:'자연주의'},
+      ]},
+      { label:'Painting · 회화', opts:[
+        {en:'oil painting',ko:'유화'},{en:'watercolor',ko:'수채화'},
+        {en:'acrylic painting',ko:'아크릴화'},{en:'gouache',ko:'과슈'},
+        {en:'ink wash painting',ko:'수묵화'},{en:'impasto',ko:'임파스토'},
+        {en:'fresco',ko:'프레스코'},
+      ]},
+      { label:'Illustration · 일러스트', opts:[
+        {en:'digital illustration',ko:'디지털 일러스트'},{en:'vector art',ko:'벡터 아트'},
+        {en:'flat design',ko:'플랫 디자인'},{en:'line art',ko:'라인 아트'},
+        {en:'storybook illustration',ko:'동화책 일러스트'},{en:'editorial illustration',ko:'편집 일러스트'},
+      ]},
+      { label:'Digital & 3D', opts:[
+        {en:'concept art',ko:'컨셉 아트'},{en:'digital painting',ko:'디지털 페인팅'},
+        {en:'matte painting',ko:'매트 페인팅'},{en:'3D render',ko:'3D 렌더'},
+        {en:'CGI',ko:'CGI'},{en:'octane render',ko:'옥테인 렌더'},
+        {en:'unreal engine render',ko:'언리얼 엔진'},{en:'isometric 3D',ko:'아이소메트릭 3D'},
+        {en:'low poly',ko:'로우폴리'},{en:'voxel art',ko:'복셀 아트'},{en:'pixel art',ko:'픽셀 아트'},
+      ]},
+      { label:'Animation · 만화', opts:[
+        {en:'anime',ko:'일본 애니메이션'},{en:'manga',ko:'만화'},
+        {en:'webtoon',ko:'웹툰'},{en:'cartoon',ko:'카툰'},
+        {en:'Disney style',ko:'디즈니 스타일'},{en:'Pixar style',ko:'픽사 스타일'},
+        {en:'Studio Ghibli style',ko:'지브리 스타일'},
+      ]},
+      { label:'Historic · 역사 양식', opts:[
+        {en:'Renaissance',ko:'르네상스'},{en:'Baroque',ko:'바로크'},
+        {en:'Impressionism',ko:'인상주의'},{en:'Expressionism',ko:'표현주의'},
+        {en:'Surrealism',ko:'초현실주의'},{en:'Art Nouveau',ko:'아르누보'},
+        {en:'Art Deco',ko:'아르데코'},{en:'Pop Art',ko:'팝 아트'},
+        {en:'Cubism',ko:'큐비즘'},{en:'Minimalism',ko:'미니멀리즘'},
+      ]},
+      { label:'Contemporary · 현대', opts:[
+        {en:'cinematic photography',ko:'시네마틱 사진'},{en:'fashion photography',ko:'패션 사진'},
+        {en:'fine art photography',ko:'파인아트 사진'},{en:'street photography',ko:'거리 사진'},
+        {en:'sketch',ko:'스케치'},{en:'charcoal drawing',ko:'목탄화'},
+        {en:'pencil drawing',ko:'연필 드로잉'},{en:'graffiti',ko:'그래피티'},
+      ]},
+    ]
+  },
+  {
+    id:'medium', icon:'🖼️', en:'Medium', ko:'재질·매체', tokCls:'tok-med', accentVar:'--c-med',
+    subs:[
+      { label:'Traditional · 전통 재료', opts:[
+        {en:'on canvas',ko:'캔버스에'},{en:'on paper',ko:'종이에'},
+        {en:'on wood panel',ko:'나무 패널에'},{en:'silk screen print',ko:'실크스크린'},
+        {en:'lithograph',ko:'석판화'},{en:'woodblock print',ko:'목판화'},
+        {en:'etching',ko:'에칭'},{en:'pastel',ko:'파스텔'},
+        {en:'colored pencil',ko:'색연필'},{en:'crayon',ko:'크레용'},
+      ]},
+      { label:'Photography · 사진 매체', opts:[
+        {en:'analog film',ko:'아날로그 필름'},{en:'35mm film',ko:'35mm 필름'},
+        {en:'polaroid',ko:'폴라로이드'},{en:'medium format',ko:'중형 포맷'},
+        {en:'Kodak Portra 400',ko:'코닥 포트라 400'},{en:'Fujifilm',ko:'후지필름'},
+        {en:'daguerreotype',ko:'다게레오타입'},{en:'black and white film',ko:'흑백 필름'},
+      ]},
+    ]
+  },
+  {
+    id:'camera', icon:'📷', en:'Camera', ko:'카메라·렌즈', tokCls:'tok-cam', accentVar:'--c-cam',
+    subs:[
+      { label:'Camera Body · 바디', opts:[
+        {en:'shot on DSLR',ko:'DSLR'},{en:'shot on mirrorless',ko:'미러리스'},
+        {en:'shot on Canon EOS R5',ko:'캐논 R5'},{en:'shot on Sony A7R',ko:'소니 A7R'},
+        {en:'shot on Hasselblad',ko:'핫셀블라드'},{en:'shot on iPhone',ko:'아이폰'},
+        {en:'drone photography',ko:'드론'},{en:'security camera',ko:'CCTV'},
+        {en:'vintage camera',ko:'빈티지 카메라'},
+      ]},
+      { label:'Lens · 렌즈', opts:[
+        {en:'14mm ultra-wide',ko:'14mm 초광각'},{en:'24mm wide angle',ko:'24mm 광각'},
+        {en:'35mm lens',ko:'35mm 표준광각'},{en:'50mm standard',ko:'50mm 표준'},
+        {en:'85mm portrait lens',ko:'85mm 인물용'},{en:'135mm lens',ko:'135mm'},
+        {en:'200mm telephoto',ko:'200mm 망원'},{en:'macro lens',ko:'접사 렌즈'},
+        {en:'fisheye lens',ko:'어안렌즈'},{en:'tilt-shift lens',ko:'틸트시프트'},
+        {en:'anamorphic lens',ko:'아나모픽 렌즈'},
+      ]},
+      { label:'Settings · 설정', opts:[
+        {en:'f/1.2 aperture',ko:'f/1.2 최대 개방'},{en:'f/1.8 aperture',ko:'f/1.8 개방'},
+        {en:'f/8 aperture',ko:'f/8 적정'},{en:'f/22 aperture',ko:'f/22 최소'},
+        {en:'ISO 100',ko:'ISO 100 저감도'},{en:'ISO 3200',ko:'ISO 3200 고감도'},
+        {en:'1/1000s shutter',ko:'1/1000s 고속 셔터'},{en:'long exposure 30s',ko:'30초 장노출'},
+        {en:'bokeh',ko:'아웃포커스'},{en:'shallow depth of field',ko:'얕은 심도'},
+        {en:'deep focus',ko:'팬포커스'},{en:'motion blur',ko:'모션 블러'},
+        {en:'lens flare',ko:'렌즈 플레어'},{en:'vignette',ko:'비네팅'},
+        {en:'chromatic aberration',ko:'색수차'},
+      ]},
+    ]
+  },
+  {
+    id:'shot', icon:'🎬', en:'Shot', ko:'구도·앵글', tokCls:'tok-sht', accentVar:'--c-sht',
+    subs:[
+      { label:'Shot Size · 샷 크기', opts:[
+        {en:'extreme close-up',ko:'익스트림 클로즈업'},{en:'close-up',ko:'클로즈업'},
+        {en:'medium close-up',ko:'미디엄 클로즈업'},{en:'medium shot',ko:'미디엄 샷'},
+        {en:'full body shot',ko:'전신 샷'},{en:'wide shot',ko:'와이드 샷'},
+        {en:'extreme wide shot',ko:'익스트림 와이드'},
+      ]},
+      { label:'Angle · 각도', opts:[
+        {en:"bird's eye view",ko:'조감도'},{en:'top-down view',ko:'탑뷰'},
+        {en:'high angle shot',ko:'하이앵글'},{en:'eye level shot',ko:'아이레벨'},
+        {en:'low angle shot',ko:'로우앵글'},{en:"worm's eye view",ko:'앙각'},
+        {en:'dutch angle',ko:'더치앵글'},{en:'POV shot',ko:'1인칭 시점'},
+        {en:'over-the-shoulder',ko:'어깨너머'},{en:'back view',ko:'뒷모습'},
+      ]},
+      { label:'Composition · 구성', opts:[
+        {en:'rule of thirds',ko:'3분할 구도'},{en:'golden ratio',ko:'황금비율'},
+        {en:'symmetrical',ko:'대칭'},{en:'asymmetrical',ko:'비대칭'},
+        {en:'leading lines',ko:'유도선 구도'},{en:'negative space',ko:'네거티브 스페이스'},
+        {en:'centered composition',ko:'중앙 구도'},{en:'diagonal composition',ko:'대각선 구도'},
+      ]},
+    ]
+  },
+  {
+    id:'lighting', icon:'💡', en:'Lighting', ko:'조명', tokCls:'tok-lit', accentVar:'--c-lit',
+    subs:[
+      { label:'Natural Light · 자연광', opts:[
+        {en:'golden hour',ko:'황금빛 석양'},{en:'blue hour',ko:'블루아워'},
+        {en:'midday sun',ko:'한낮 햇빛'},{en:'overcast light',ko:'흐린 날 빛'},
+        {en:'dappled sunlight',ko:'나뭇잎 사이 빛'},{en:'moonlight',ko:'달빛'},
+        {en:'sunrise',ko:'일출'},{en:'sunset',ko:'일몰'},
+      ]},
+      { label:'Studio · 스튜디오', opts:[
+        {en:'studio lighting',ko:'스튜디오 조명'},{en:'softbox lighting',ko:'소프트박스'},
+        {en:'ring light',ko:'링 라이트'},{en:'rembrandt lighting',ko:'렘브란트 조명'},
+        {en:'butterfly lighting',ko:'버터플라이'},{en:'split lighting',ko:'스플릿'},
+        {en:'high key lighting',ko:'하이키'},{en:'low key lighting',ko:'로우키'},
+        {en:'three-point lighting',ko:'3점 조명'},
+      ]},
+      { label:'Dramatic · 극적 조명', opts:[
+        {en:'dramatic lighting',ko:'극적인 명암'},{en:'chiaroscuro',ko:'키아로스쿠로'},
+        {en:'rim lighting',ko:'림 라이팅'},{en:'backlight',ko:'역광'},
+        {en:'silhouette',ko:'실루엣'},{en:'volumetric lighting',ko:'빛 줄기'},
+        {en:'god rays',ko:'천사 빛줄기'},{en:'caustic light',ko:'코스틱 빛'},
+      ]},
+      { label:'Artificial · 인공 조명', opts:[
+        {en:'neon lighting',ko:'네온 조명'},{en:'candlelight',ko:'촛불'},
+        {en:'firelight',ko:'불빛'},{en:'streetlight',ko:'가로등'},
+        {en:'fluorescent light',ko:'형광등'},{en:'bioluminescence',ko:'생물 발광'},
+        {en:'blacklight / UV',ko:'자외선'},
+      ]},
+    ]
+  },
+  {
+    id:'color', icon:'🌈', en:'Color', ko:'색감·팔레트', tokCls:'tok-col', accentVar:'--c-col',
+    subs:[
+      { label:'Palette · 팔레트', opts:[
+        {en:'vibrant colors',ko:'선명하고 강렬한'},{en:'muted tones',ko:'차분한 색조'},
+        {en:'pastel colors',ko:'파스텔'},{en:'monochromatic',ko:'단색 계열'},
+        {en:'earth tones',ko:'자연 색조'},{en:'jewel tones',ko:'보석 컬러'},
+        {en:'neon colors',ko:'형광색'},{en:'black and white',ko:'흑백'},
+        {en:'sepia tone',ko:'세피아'},{en:'duotone',ko:'듀오톤'},
+      ]},
+      { label:'Temperature · 색온도', opts:[
+        {en:'warm tones',ko:'따뜻한 색조'},{en:'cool tones',ko:'차가운 색조'},
+        {en:'golden warm',ko:'골드 웜 톤'},{en:'icy blue',ko:'아이시 블루'},
+        {en:'teal and orange',ko:'틸 & 오렌지 (시네마틱)'},
+      ]},
+      { label:'Grade · 색 보정', opts:[
+        {en:'cinematic color grade',ko:'시네마틱 보정'},{en:'vintage color grade',ko:'빈티지 보정'},
+        {en:'Kodachrome',ko:'코닥크롬'},{en:'cross-processed',ko:'교차 현상'},
+        {en:'bleach bypass',ko:'블리치 바이패스'},{en:'high contrast',ko:'고대비'},
+        {en:'low contrast',ko:'저대비'},{en:'desaturated',ko:'채도 낮음'},
+        {en:'oversaturated',ko:'채도 과다'},
+      ]},
+    ]
+  },
+  {
+    id:'mood', icon:'🌫️', en:'Mood', ko:'분위기·감성', tokCls:'tok-mod', accentVar:'--c-mod',
+    subs:[
+      { label:'Emotion · 감정', opts:[
+        {en:'melancholic',ko:'우울하고 쓸쓸한'},{en:'nostalgic',ko:'향수'},
+        {en:'romantic',ko:'로맨틱'},{en:'mysterious',ko:'신비로운'},
+        {en:'serene',ko:'고요하고 평화로운'},{en:'tense',ko:'긴장감'},
+        {en:'euphoric',ko:'황홀한'},{en:'lonely',ko:'고독'},
+        {en:'hopeful',ko:'희망적'},{en:'ominous',ko:'불길한'},
+        {en:'playful',ko:'경쾌한'},{en:'epic',ko:'웅장한'},
+      ]},
+      { label:'Aesthetic · 미적 감성', opts:[
+        {en:'ethereal',ko:'몽환적'},{en:'dreamy',ko:'꿈 같은'},
+        {en:'dark',ko:'어두운'},{en:'moody',ko:'무거운'},
+        {en:'cozy',ko:'아늑한'},{en:'gritty',ko:'거친'},
+        {en:'cyberpunk',ko:'사이버펑크'},{en:'steampunk',ko:'스팀펑크'},
+        {en:'cottagecore',ko:'코티지코어'},{en:'dark academia',ko:'다크 아카데미아'},
+        {en:'vaporwave',ko:'베이퍼웨이브'},{en:'lo-fi',ko:'로파이'},
+      ]},
+      { label:'World · 세계관', opts:[
+        {en:'dystopian',ko:'디스토피아'},{en:'utopian',ko:'유토피아'},
+        {en:'post-apocalyptic',ko:'포스트 아포칼립스'},{en:'futuristic',ko:'미래적'},
+        {en:'medieval',ko:'중세풍'},{en:'fantasy',ko:'판타지'},
+        {en:'sci-fi',ko:'SF'},{en:'mythological',ko:'신화적'},
+        {en:'fairytale',ko:'동화적'},
+      ]},
+    ]
+  },
+  {
+    id:'setting', icon:'🏙️', en:'Setting', ko:'배경·장소', tokCls:'tok-set', accentVar:'--c-set',
+    subs:[
+      { label:'Urban · 도시', opts:[
+        {en:'Tokyo alley',ko:'도쿄 골목'},{en:'New York City',ko:'뉴욕'},
+        {en:'Paris street',ko:'파리 거리'},{en:'neon-lit street',ko:'네온사인 거리'},
+        {en:'underground subway',ko:'지하철역'},{en:'rooftop',ko:'루프탑'},
+        {en:'abandoned building',ko:'폐건물'},{en:'skyscraper',ko:'초고층 빌딩'},
+      ]},
+      { label:'Nature · 자연', opts:[
+        {en:'dense forest',ko:'울창한 숲'},{en:'mountain peak',ko:'산 정상'},
+        {en:'ocean cliff',ko:'해안 절벽'},{en:'desert',ko:'사막'},
+        {en:'arctic tundra',ko:'북극 툰드라'},{en:'tropical jungle',ko:'열대우림'},
+        {en:'wheat field',ko:'밀밭'},{en:'lavender field',ko:'라벤더 밭'},
+        {en:'waterfall',ko:'폭포'},{en:'underwater',ko:'수중'},
+      ]},
+      { label:'Indoor · 실내', opts:[
+        {en:'cozy cafe',ko:'카페'},{en:'library',ko:'도서관'},
+        {en:'dark laboratory',ko:'실험실'},{en:'grand cathedral',ko:'대성당'},
+        {en:'museum gallery',ko:'미술관'},{en:'ancient temple',ko:'고대 신전'},
+        {en:'spaceship interior',ko:'우주선 내부'},
+      ]},
+      { label:'Fantasy · 판타지 공간', opts:[
+        {en:'floating island',ko:'하늘에 떠있는 섬'},{en:'enchanted forest',ko:'마법의 숲'},
+        {en:'crystal cave',ko:'수정 동굴'},{en:'ruins of ancient city',ko:'고대 도시 폐허'},
+        {en:'alien planet',ko:'외계 행성'},{en:'dreamscape',ko:'꿈속 공간'},
+      ]},
+      { label:'Time · 시간대', opts:[
+        {en:'at dawn',ko:'새벽'},{en:'in the morning',ko:'아침'},
+        {en:'at noon',ko:'한낮'},{en:'at dusk',ko:'황혼'},
+        {en:'at night',ko:'밤'},{en:'rainy day',ko:'비 오는 날'},
+        {en:'snowy',ko:'눈 오는'},{en:'foggy',ko:'안개 낀'},
+        {en:'stormy',ko:'폭풍우'},
+      ]},
+    ]
+  },
+  {
+    id:'character', icon:'👤', en:'Character', ko:'인물·캐릭터', tokCls:'tok-chr', accentVar:'--c-chr',
+    subs:[
+      { label:'Age & Gender · 나이/성별', opts:[
+        {en:'young woman',ko:'젊은 여성'},{en:'young man',ko:'젊은 남성'},
+        {en:'elderly woman',ko:'노년 여성'},{en:'elderly man',ko:'노년 남성'},
+        {en:'child',ko:'어린이'},{en:'teenager',ko:'십대'},{en:'androgynous',ko:'성별 중립'},
+      ]},
+      { label:'Expression · 표정', opts:[
+        {en:'smiling',ko:'웃는'},{en:'serious expression',ko:'진지한'},
+        {en:'contemplative',ko:'생각에 잠긴'},{en:'sad',ko:'슬픈'},
+        {en:'surprised',ko:'놀란'},{en:'stoic',ko:'무표정'},
+        {en:'joyful',ko:'기쁜'},{en:'crying',ko:'우는'},
+      ]},
+      { label:'Pose · 포즈', opts:[
+        {en:'standing',ko:'서 있는'},{en:'sitting',ko:'앉아있는'},
+        {en:'walking',ko:'걷는'},{en:'running',ko:'뛰는'},
+        {en:'lying down',ko:'누운'},{en:'looking back',ko:'뒤를 돌아보는'},
+        {en:'dynamic pose',ko:'역동적인 포즈'},
+      ]},
+      { label:'Outfit · 의상', opts:[
+        {en:'casual outfit',ko:'캐주얼'},{en:'formal suit',ko:'정장'},
+        {en:'traditional clothing',ko:'전통 의복'},{en:'fantasy armor',ko:'판타지 갑옷'},
+        {en:'futuristic outfit',ko:'미래적 의상'},{en:'streetwear',ko:'스트리트웨어'},
+        {en:'vintage fashion',ko:'빈티지 패션'},
+      ]},
+    ]
+  },
+  {
+    id:'texture', icon:'✨', en:'Texture', ko:'질감·효과', tokCls:'tok-tex', accentVar:'--c-tex',
+    subs:[
+      { label:'Surface · 표면', opts:[
+        {en:'smooth',ko:'매끈한'},{en:'rough',ko:'거친'},
+        {en:'glossy',ko:'광택있는'},{en:'matte surface',ko:'무광'},
+        {en:'metallic',ko:'금속성'},{en:'translucent',ko:'반투명'},
+        {en:'cracked',ko:'균열'},{en:'weathered',ko:'풍화된'},
+        {en:'iridescent',ko:'무지개 빛깔'},{en:'crystalline',ko:'수정 같은'},
+      ]},
+      { label:'Effects · 효과', opts:[
+        {en:'glowing',ko:'발광하는'},{en:'sparkling',ko:'반짝이는'},
+        {en:'smoke',ko:'연기'},{en:'fog effect',ko:'안개 효과'},
+        {en:'rain drops',ko:'빗방울'},{en:'dust particles',ko:'먼지 입자'},
+        {en:'magic particles',ko:'마법 입자'},{en:'lightning',ko:'번개'},
+        {en:'aurora effect',ko:'오로라'},{en:'reflections',ko:'반사'},
+        {en:'depth of field effect',ko:'심도 효과'},
+      ]},
+    ]
+  },
+  {
+    id:'render', icon:'⚙️', en:'Render', ko:'렌더 스타일', tokCls:'tok-ren', accentVar:'--c-ren',
+    subs:[
+      { label:'Engine · 렌더 엔진', opts:[
+        {en:'Unreal Engine 5',ko:'언리얼 엔진 5'},{en:'Octane Render',ko:'옥테인 렌더'},
+        {en:'Blender Cycles',ko:'블렌더 사이클즈'},{en:'V-Ray',ko:'브이레이'},
+        {en:'Arnold Renderer',ko:'아놀드'},{en:'KeyShot',ko:'키샷'},
+      ]},
+      { label:'Technique · 기법', opts:[
+        {en:'ray tracing',ko:'레이 트레이싱'},{en:'path tracing',ko:'패스 트레이싱'},
+        {en:'global illumination',ko:'전역 조명'},{en:'subsurface scattering',ko:'피부 빛 산란'},
+        {en:'physically based rendering',ko:'물리 기반 렌더링'},{en:'ambient occlusion',ko:'앰비언트 오클루전'},
+        {en:'cel shading',ko:'셀 쉐이딩'},{en:'NPR',ko:'비사실적 렌더링'},
+      ]},
+    ]
+  },
+  {
+    id:'quality', icon:'⭐', en:'Quality', ko:'품질·완성도', tokCls:'tok-qua', accentVar:'--c-qua',
+    subs:[
+      { label:'Resolution · 해상도', opts:[
+        {en:'8K resolution',ko:'8K'},{en:'4K resolution',ko:'4K'},
+        {en:'ultra high resolution',ko:'초고해상도'},{en:'wallpaper quality',ko:'배경화면 품질'},
+      ]},
+      { label:'Detail · 디테일', opts:[
+        {en:'highly detailed',ko:'매우 세밀한'},{en:'ultra sharp',ko:'초선명'},
+        {en:'intricate details',ko:'정교한 디테일'},{en:'hyper detailed',ko:'극세밀'},
+        {en:'crisp',ko:'선명하고 깔끔한'},
+      ]},
+      { label:'Quality Tags · 품질 태그', opts:[
+        {en:'masterpiece',ko:'걸작'},{en:'best quality',ko:'최고 품질'},
+        {en:'award winning',ko:'수상작 수준'},{en:'professional',ko:'전문가 수준'},
+        {en:'trending on ArtStation',ko:'아트스테이션 인기'},
+      ]},
+      { label:'Aspect Ratio · 비율', opts:[
+        {en:'--ar 1:1',ko:'정사각형'},{en:'--ar 16:9',ko:'와이드스크린'},
+        {en:'--ar 9:16',ko:'세로형 (모바일)'},{en:'--ar 4:3',ko:'전통 비율'},
+        {en:'--ar 3:2',ko:'사진 비율'},{en:'--ar 21:9',ko:'울트라와이드'},
+      ]},
+    ]
+  },
+];
+
+/* ═══════════════════════════════
+   STATE
+═══════════════════════════════ */
+const sel = {};          // catId → value
+let activeCatId = CATS[0].id;
+
+/* ═══════════════════════════════
+   BUILD NAV
+═══════════════════════════════ */
+function buildNav() {
+  const nav = document.getElementById('navScroll');
+  CATS.forEach(cat => {
+    const tab = document.createElement('div');
+    tab.className = 'nav-tab';
+    tab.id = `tab-${cat.id}`;
+    tab.style.setProperty('--accent-color', `var(${cat.accentVar})`);
+    tab.innerHTML = `
+      <span class="nav-tab-icon">${cat.icon}</span>
+      <span class="nav-tab-en">${cat.en}</span>
+      <span class="nav-tab-ko">${cat.ko}</span>
+      <span class="nav-dot"></span>
+    `;
+    tab.onclick = () => switchCat(cat.id);
+    nav.appendChild(tab);
+  });
+}
+
+/* ═══════════════════════════════
+   SWITCH CATEGORY
+═══════════════════════════════ */
+function switchCat(catId) {
+  activeCatId = catId;
+
+  // update nav
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById(`tab-${catId}`).classList.add('active');
+
+  // render middle zone
+  const cat = CATS.find(c => c.id === catId);
+  const mid = document.getElementById('zoneMid');
+  mid.innerHTML = '';
+  mid.scrollTop = 0;
+
+  // title
+  const titleDiv = document.createElement('div');
+  titleDiv.className = 'mid-cat-title';
+  titleDiv.innerHTML = `
+    <span class="mid-cat-icon">${cat.icon}</span>
+    <span class="mid-cat-en" style="color:var(${cat.accentVar})">${cat.en}</span>
+    <span class="mid-cat-ko">${cat.ko}</span>
+  `;
+  mid.appendChild(titleDiv);
+
+  if (cat.isText) {
+    const wrap = document.createElement('div');
+    wrap.className = 'subject-zone';
+    const ta = document.createElement('textarea');
+    ta.rows = 5;
+    ta.id = 'subject-ta';
+    ta.placeholder = cat.placeholder;
+    ta.value = sel.subject || '';
+    ta.oninput = () => { sel.subject = ta.value.trim(); renderPrompt(); };
+    const hint = document.createElement('div');
+    hint.className = 'hint';
+    hint.textContent = '이미지의 핵심 주제를 자유롭게 입력하세요. 영어로 입력하면 더 정확합니다.';
+    wrap.appendChild(ta);
+    wrap.appendChild(hint);
+    mid.appendChild(wrap);
+  } else {
+    cat.subs.forEach(sub => {
+      const ss = document.createElement('div');
+      ss.className = 'sub-section';
+      const lbl = document.createElement('div');
+      lbl.className = 'sub-label';
+      lbl.textContent = sub.label;
+      ss.appendChild(lbl);
+      const chips = document.createElement('div');
+      chips.className = 'chips';
+      sub.opts.forEach(o => {
+        const c = document.createElement('div');
+        c.className = 'chip' + (sel[catId] === o.en ? ' on' : '');
+        c.style.setProperty('color', `var(${cat.accentVar})`);
+        c.innerHTML = `<span class="chip-en">${o.en}</span><span class="chip-ko">${o.ko}</span>`;
+        if (sel[catId] === o.en) {
+          c.style.borderColor = `var(${cat.accentVar})`;
+          c.style.background = 'var(--s3)';
+        }
+        c.onclick = () => toggleChip(catId, o.en, c, cat.accentVar);
+        chips.appendChild(c);
+      });
+      ss.appendChild(chips);
+      mid.appendChild(ss);
+    });
+  }
+}
+
+/* ═══════════════════════════════
+   TOGGLE CHIP
+═══════════════════════════════ */
+function toggleChip(catId, val, chip, accentVar) {
+  const was = chip.classList.contains('on');
+
+  // deselect all chips in current middle zone
+  document.querySelectorAll(`#zoneMid .chip`).forEach(c => {
+    c.classList.remove('on');
+    c.style.borderColor = '';
+    c.style.background = '';
+  });
+
+  if (was) {
+    delete sel[catId];
+  } else {
+    sel[catId] = val;
+    chip.classList.add('on');
+    chip.style.borderColor = `var(${accentVar})`;
+    chip.style.background = 'var(--s3)';
+  }
+
+  // update nav dot
+  const tab = document.getElementById(`tab-${catId}`);
+  if (sel[catId]) tab.classList.add('has-sel');
+  else tab.classList.remove('has-sel');
+
+  renderPrompt();
+}
+
+/* ═══════════════════════════════
+   RENDER PROMPT
+═══════════════════════════════ */
+const ORDER = ['subject','art','medium','camera','shot','lighting','color','mood','setting','character','texture','render','quality'];
+
+function renderPrompt() {
+  const parts = ORDER.filter(k => sel[k]);
+  const display = document.getElementById('promptDisplay');
+
+  // count
+  document.getElementById('countPill').textContent = `${parts.length} 선택`;
+
+  if (!parts.length) {
+    display.innerHTML = '<span class="prompt-empty">아래에서 카테고리를 선택하고 항목을 골라보세요.</span>';
+    return;
+  }
+
+  const clsMap = {};
+  CATS.forEach(c => { clsMap[c.id] = c.tokCls; });
+
+  display.innerHTML = parts.map((k, i) =>
+    `<span class="tok ${clsMap[k]}">${sel[k]}</span>${i < parts.length - 1 ? '<span class="tok-sep">, </span>' : ''}`
+  ).join('');
+
+  // auto scroll to bottom
+  display.scrollTop = display.scrollHeight;
+}
+
+/* ═══════════════════════════════
+   COPY / RESET
+═══════════════════════════════ */
+function doCopy() {
+  const t = ORDER.filter(k => sel[k]).map(k => sel[k]).join(', ');
+  if (!t) return;
+  navigator.clipboard.writeText(t).then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'Copied!';
+    btn.classList.add('ok');
+    setTimeout(() => { btn.textContent = 'Copy'; btn.classList.remove('ok'); }, 1400);
+  });
+}
+
+function doReset() {
+  ORDER.forEach(k => delete sel[k]);
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('has-sel'));
+  renderPrompt();
+  switchCat(activeCatId);
+}
+
+/* ═══════════════════════════════
+   INIT
+═══════════════════════════════ */
+buildNav();
+switchCat('subject');
+document.getElementById(`tab-subject`).classList.add('active');
+</script>
+</body>
+</html>
