@@ -271,18 +271,20 @@ function switchCat(catId) {
     hint.textContent = '이미지의 핵심 주제를 자유롭게 입력하세요. 영어 입력 시 더 정확합니다.';
     wrap.appendChild(ta); wrap.appendChild(hint); mid.appendChild(wrap);
   } else {
-    cat.subs.forEach(sub => {
+    if (!sel[catId]) sel[catId] = {};
+    cat.subs.forEach((sub, si) => {
       const ss = document.createElement('div'); ss.className = 'sub-section';
       const lbl = document.createElement('div'); lbl.className = 'sub-label'; lbl.textContent = sub.label;
       ss.appendChild(lbl);
       const chips = document.createElement('div'); chips.className = 'chips';
+      chips.dataset.catId = catId; chips.dataset.subIdx = si;
       sub.opts.forEach(o => {
         const c = document.createElement('div');
-        const isOn = sel[catId] === o.en;
+        const isOn = sel[catId] && sel[catId][si] === o.en;
         c.className = 'chip' + (isOn ? ' on' : '');
         if (isOn) { c.style.borderColor = cat.color; c.style.background = 'var(--s3)'; }
         c.innerHTML = '<span class="chip-en" style="' + (isOn ? 'color:'+cat.color : '') + '">' + o.en + '</span><span class="chip-ko">' + o.ko + '</span>';
-        c.onclick = () => toggleChip(catId, o.en, c, cat.color);
+        c.onclick = () => toggleChip(catId, si, o.en, c, cat.color);
         chips.appendChild(c);
       });
       ss.appendChild(chips); mid.appendChild(ss);
@@ -290,35 +292,48 @@ function switchCat(catId) {
   }
 }
 
-function toggleChip(catId, val, chip, color) {
+function toggleChip(catId, subIdx, val, chip, color) {
   const was = chip.classList.contains('on');
-  document.querySelectorAll('#zoneMid .chip').forEach(c => {
+  const siblings = chip.closest('.chips').querySelectorAll('.chip');
+  siblings.forEach(c => {
     c.classList.remove('on'); c.style.borderColor = ''; c.style.background = '';
     const en = c.querySelector('.chip-en'); if (en) en.style.color = '';
   });
-  if (was) { delete sel[catId]; }
+  if (!sel[catId]) sel[catId] = {};
+  if (was) { delete sel[catId][subIdx]; }
   else {
-    sel[catId] = val; chip.classList.add('on');
+    sel[catId][subIdx] = val; chip.classList.add('on');
     chip.style.borderColor = color; chip.style.background = 'var(--s3)';
     const en = chip.querySelector('.chip-en'); if (en) en.style.color = color;
   }
   const tab = document.getElementById('tab-' + catId);
-  if (sel[catId]) tab.classList.add('has-sel'); else tab.classList.remove('has-sel');
+  if (Object.keys(sel[catId]).length > 0) tab.classList.add('has-sel'); else tab.classList.remove('has-sel');
   renderPrompt();
 }
 
 function renderPrompt() {
-  const parts = ORDER.filter(k => sel[k]);
-  document.getElementById('countPill').textContent = parts.length + ' 선택';
-  const display = document.getElementById('promptDisplay');
-  if (!parts.length) { display.innerHTML = '<span class="prompt-empty">아래 카테고리를 눌러 항목을 선택하세요.</span>'; return; }
   const clsMap = {}; CATS.forEach(c => { clsMap[c.id] = c.tokCls; });
-  display.innerHTML = parts.map((k,i) => '<span class="tok ' + clsMap[k] + '">' + sel[k] + '</span>' + (i < parts.length-1 ? '<span class="tok-sep">, </span>' : '')).join('');
+  const allTokens = [];
+  ORDER.forEach(k => {
+    if (k === 'subject') { if (sel[k]) allTokens.push({cls: clsMap[k], val: sel[k]}); }
+    else if (sel[k] && typeof sel[k] === 'object') {
+      Object.values(sel[k]).forEach(v => { if (v) allTokens.push({cls: clsMap[k], val: v}); });
+    }
+  });
+  document.getElementById('countPill').textContent = allTokens.length + ' 선택';
+  const display = document.getElementById('promptDisplay');
+  if (!allTokens.length) { display.innerHTML = '<span class="prompt-empty">아래 카테고리를 눌러 항목을 선택하세요.</span>'; return; }
+  display.innerHTML = allTokens.map((t,i) => '<span class="tok ' + t.cls + '">' + t.val + '</span>' + (i < allTokens.length-1 ? '<span class="tok-sep">, </span>' : '')).join('');
   display.scrollTop = display.scrollHeight;
 }
 
 function doCopy() {
-  const t = ORDER.filter(k => sel[k]).map(k => sel[k]).join(', ');
+  const allVals = [];
+  ORDER.forEach(k => {
+    if (k === 'subject') { if (sel[k]) allVals.push(sel[k]); }
+    else if (sel[k] && typeof sel[k] === 'object') { Object.values(sel[k]).forEach(v => { if (v) allVals.push(v); }); }
+  });
+  const t = allVals.join(', ');
   if (!t) return;
   navigator.clipboard.writeText(t).then(() => {
     const btn = document.getElementById('copyBtn');
